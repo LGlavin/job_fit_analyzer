@@ -3,3 +3,4 @@ langgraph
 langchain-openai
 langsmith
 python-dotenv
+pyairtable
