@@ -67,6 +67,7 @@ Return ONLY a raw JSON array of strings, no markdown, no code fences, no explana
 If the input is not a real job description, return an empty array: []"""),
         HumanMessage(content=state["job_description"])
     ])
+    
     try:
         requirements = parse_json_response(response.content)
         if not isinstance(requirements, list):
