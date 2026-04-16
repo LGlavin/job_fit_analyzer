@@ -2,11 +2,13 @@ import streamlit as st
 import json
 import os
 import re
+from datetime import datetime
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from typing import TypedDict, List
+from pyairtable import Api
 
 load_dotenv()
 
@@ -67,7 +69,6 @@ Return ONLY a raw JSON array of strings, no markdown, no code fences, no explana
 If the input is not a real job description, return an empty array: []"""),
         HumanMessage(content=state["job_description"])
     ])
-    
     try:
         requirements = parse_json_response(response.content)
         if not isinstance(requirements, list):
@@ -119,7 +120,27 @@ Name actual courses, tools, or projects."""),
         return {"recommendations": [response.content]}
 
 def save_node(state: JobFitState) -> JobFitState:
-    return {"saved": False}
+    try:
+        token = os.environ.get("AIRTABLE_TOKEN")
+        base_id = os.environ.get("AIRTABLE_BASE_ID")
+        if not token or not base_id:
+            return {"saved": False}
+
+        api = Api(token)
+        table = api.table(base_id, "Applications")
+        table.create({
+            "Job Title": state["job_title"],
+            "Company": state["company"],
+            "Fit Score": state["fit_score"],
+            "Strengths": "\n".join(state["strengths"]),
+            "Gaps": "\n".join(state["gaps"]),
+            "Recommendations": "\n".join(state["recommendations"]),
+            "Analyzed At": datetime.utcnow().strftime("%Y-%m-%d")
+        })
+        return {"saved": True}
+    except Exception as e:
+        print(f"Airtable save failed: {e}")
+        return {"saved": False}
 
 @st.cache_resource
 def build_graph():
@@ -228,5 +249,9 @@ if analyze_btn:
             for i, rec in enumerate(result["recommendations"], 1):
                 st.markdown(f"**{i}.** {rec}")
 
+        # Airtable save status
+        if result.get("saved"):
+            st.success("✅ Saved to Airtable")
+        
         st.divider()
         st.caption("Traces available in LangSmith → smith.langchain.com")
