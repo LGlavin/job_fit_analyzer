@@ -2,7 +2,6 @@ import streamlit as st
 import json
 import os
 import re
-from datetime import datetime
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
@@ -123,19 +122,17 @@ def save_node(state: JobFitState) -> JobFitState:
     try:
         token = os.environ.get("AIRTABLE_TOKEN")
         base_id = os.environ.get("AIRTABLE_BASE_ID")
-        if not token or not base_id:
-            return {"saved": False}
-
+        print(f"Token starts with: {token[:10] if token else 'NONE'}")
+        print(f"Base ID: {base_id}")
         api = Api(token)
-        table = api.table(base_id, "Applications")
+        table = api.table(base_id, "Table 1")
         table.create({
             "Job Title": state["job_title"],
             "Company": state["company"],
             "Fit Score": state["fit_score"],
             "Strengths": "\n".join(state["strengths"]),
             "Gaps": "\n".join(state["gaps"]),
-            "Recommendations": "\n".join(state["recommendations"]),
-            "Analyzed At": datetime.utcnow().strftime("%Y-%m-%d")
+            "Recommendations": "\n".join(state["recommendations"])
         })
         return {"saved": True}
     except Exception as e:
