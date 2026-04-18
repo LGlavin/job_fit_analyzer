@@ -1,30 +1,15 @@
-# Job Fit Analyzer — LangGraph Agent
-# Analyzes a job description against your resume and scores fit + flags gaps
-#
-# Setup:
-#   pip install langgraph langchain-openai langsmith supabase
-#
-# .env file:
-#   OPENAI_API_KEY=your_key
-#   LANGCHAIN_API_KEY=your_langsmith_key
-#   LANGCHAIN_TRACING_V2=true
-#   LANGCHAIN_PROJECT=job-fit-analyzer
-#   SUPABASE_URL=your_supabase_url
-#   SUPABASE_KEY=your_supabase_anon_key
 from dotenv import load_dotenv
 load_dotenv()
+
 import streamlit as st
 import json
 import os
-from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from typing import TypedDict, List
 
 
-
-# ── RESUME ────────────────────────────────────────────────────────────────────
 MY_RESUME = """
 Elizabeth Glavin
 Technical Lead & Senior Technical Support Engineer — Twilio (2021-Present)
@@ -53,7 +38,6 @@ Skills: Python, JavaScript, React Native, SQL, APIs, Docker, Kubernetes, AWS,
         Salesforce
 """
 
-# ── STATE ─────────────────────────────────────────────────────────────────────
 class JobFitState(TypedDict):
     job_title: str
     company: str
@@ -65,12 +49,10 @@ class JobFitState(TypedDict):
     recommendations: List[str]
     saved: bool
 
-# ── LLM ──────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def get_llm():
     return ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
-# ── NODES ─────────────────────────────────────────────────────────────────────
 def extract_node(state: JobFitState) -> JobFitState:
     llm = get_llm()
     response = llm.invoke([
@@ -132,7 +114,6 @@ def save_node(state: JobFitState) -> JobFitState:
     return {"saved": False}
 
 
-# ── GRAPH ─────────────────────────────────────────────────────────────────────
 @st.cache_resource
 def build_graph():
     graph = StateGraph(JobFitState)
@@ -148,14 +129,8 @@ def build_graph():
     return graph.compile()
 
 
-# ── UI ────────────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Job Fit Analyzer",
-    page_icon="🎯",
-    layout="wide"
-)
+st.set_page_config(page_title="Job Fit Analyzer", page_icon="🎯", layout="wide")
 
-# Custom CSS
 st.markdown("""
 <style>
     .main { background-color: #0a0a0f; }
@@ -168,54 +143,29 @@ st.markdown("""
         text-align: center;
         margin: 16px 0;
     }
-    .score-number {
-        font-size: 72px;
-        font-weight: 800;
-        line-height: 1;
-    }
-    .tag {
-        display: inline-block;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 12px;
-        margin: 4px;
-    }
+    .score-number { font-size: 72px; font-weight: 800; line-height: 1; }
 </style>
 """, unsafe_allow_html=True)
 
-# Header
 st.title("🎯 Job Fit Analyzer")
 st.markdown("*Paste in a job description and see how well your profile matches.*")
 st.divider()
 
-# Input
 col1, col2 = st.columns([1, 2])
-
 with col1:
     job_title = st.text_input("Job Title", placeholder="e.g. Deployed Engineer")
     company = st.text_input("Company", placeholder="e.g. LangChain")
-
 with col2:
-    job_description = st.text_area(
-        "Job Description",
-        placeholder="Paste the full job description here...",
-        height=200
-    )
+    job_description = st.text_area("Job Description", placeholder="Paste the full job description here...", height=200)
 
 analyze_btn = st.button("Analyze Fit →", type="primary", use_container_width=True)
 
-# Analysis
 if analyze_btn:
     if not job_title or not company or not job_description:
         st.error("Please fill in all fields before analyzing.")
     else:
         agent = build_graph()
-
         with st.spinner("Analyzing your fit..."):
-            # Progress steps
-            progress = st.empty()
-            progress.markdown("⚙️ *Extracting requirements...*")
-
             result = agent.invoke({
                 "job_title": job_title,
                 "company": company,
@@ -228,31 +178,19 @@ if analyze_btn:
                 "saved": False
             })
 
-            progress.empty()
-
-        # Score display
         score = result["fit_score"]
         if score >= 80:
-            color = "#4ade80"
-            label = "Strong Fit"
-            emoji = "🟢"
+            color, label, emoji = "#4ade80", "Strong Fit", "🟢"
         elif score >= 60:
-            color = "#facc15"
-            label = "Good Fit"
-            emoji = "🟡"
+            color, label, emoji = "#facc15", "Good Fit", "🟡"
         elif score >= 40:
-            color = "#fb923c"
-            label = "Moderate Fit"
-            emoji = "🟠"
+            color, label, emoji = "#fb923c", "Moderate Fit", "🟠"
         else:
-            color = "#f87171"
-            label = "Weak Fit"
-            emoji = "🔴"
+            color, label, emoji = "#f87171", "Weak Fit", "🔴"
 
         st.divider()
-
-        # Score + summary row
         c1, c2, c3 = st.columns(3)
+
         with c1:
             st.markdown(f"""
             <div class="score-box">
@@ -274,15 +212,14 @@ if analyze_btn:
 
         st.divider()
 
-        # Requirements extracted
         with st.expander("📋 Requirements extracted from job description"):
             for r in result["requirements"]:
                 st.markdown(f"- {r}")
 
-        # Recommendations
-        st.markdown("### 📌 How to close the gaps")
-        for i, rec in enumerate(result["recommendations"], 1):
-            st.markdown(f"**{i}.** {rec}")
+        if result["recommendations"]:
+            st.markdown("### 📌 How to close the gaps")
+            for i, rec in enumerate(result["recommendations"], 1):
+                st.markdown(f"**{i}.** {rec}")
 
         st.divider()
         st.caption("Traces available in LangSmith → smith.langchain.com")

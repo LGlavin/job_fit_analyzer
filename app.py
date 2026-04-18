@@ -122,8 +122,6 @@ def save_node(state: JobFitState) -> JobFitState:
     try:
         token = os.environ.get("AIRTABLE_TOKEN")
         base_id = os.environ.get("AIRTABLE_BASE_ID")
-        print(f"Token starts with: {token[:10] if token else 'NONE'}")
-        print(f"Base ID: {base_id}")
         api = Api(token)
         table = api.table(base_id, "Table 1")
         table.create({
@@ -246,7 +244,6 @@ if analyze_btn:
             for i, rec in enumerate(result["recommendations"], 1):
                 st.markdown(f"**{i}.** {rec}")
 
-        # Airtable save status
         if result.get("saved"):
             st.success("✅ Saved to Airtable")
         
